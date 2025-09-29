@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebProductManagement.Data;
 using WebProductManagement.Models;
+using WebProductManagement.Repositories;
 
 namespace WebProductManagement.Controllers
 {
@@ -9,18 +10,20 @@ namespace WebProductManagement.Controllers
     [Route("api/[controller]")]
     public class ProductsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+       // private readonly AppDbContext _context;
+        private readonly IProductRepository _productRepository;
 
-        public ProductsController(AppDbContext context)
+        public ProductsController(AppDbContext context, IProductRepository productRepository)
         {
-            _context = context;
+            _productRepository = productRepository;
+            //_context = context;
         }
 
 
         [HttpGet]
         public async Task<IActionResult> GetAllProducts()
         {
-            var products = await _context.Products.ToListAsync();
+            var products = await _productRepository.GetAllProduct();
             return Ok(products);
         }
 
@@ -28,7 +31,7 @@ namespace WebProductManagement.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetProduct(int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            var product = await _productRepository.GetProductById(id);
 
             if (product == null)
                 return NotFound($"Produit avec l'ID {id} non trouvé.");
@@ -40,7 +43,7 @@ namespace WebProductManagement.Controllers
         [HttpGet("instock")]
         public async Task<IActionResult> GetInStockProducts()
         {
-            var products = await _context.Products.Where(p => p.Stock > 0).ToListAsync();
+            var products = await _productRepository.GetInStockAsync();
             return Ok(products);
         }
 
@@ -48,8 +51,8 @@ namespace WebProductManagement.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateProduct(Product product)
         {
-            await _context.Products.AddAsync(product);
-            await _context.SaveChangesAsync();
+            await _productRepository.AddAsync(product);
+            await _productRepository.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
@@ -61,7 +64,7 @@ namespace WebProductManagement.Controllers
             if (id != product.Id)
                 return BadRequest("L'ID du produit ne correspond pas.");
 
-            var existingProduct = await _context.Products.FindAsync(id);
+            var existingProduct = await _productRepository.GetProductById(id);
             if (existingProduct == null)
                 return NotFound($"Produit avec l'ID {id} non trouvé.");
 
@@ -71,7 +74,8 @@ namespace WebProductManagement.Controllers
             existingProduct.Price = product.Price;
             existingProduct.Stock = product.Stock;
 
-            await _context.SaveChangesAsync();
+            await _productRepository.UpdateAsync(existingProduct);
+            await _productRepository.SaveChangesAsync();
             return Ok(existingProduct);
         }
 
@@ -79,12 +83,12 @@ namespace WebProductManagement.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            var product = await _productRepository.GetProductById(id);
             if (product == null)
                 return NotFound($"Produit avec l'ID {id} non trouvé.");
 
-            _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
+            await _productRepository.DeleteAsync(product);
+            await _productRepository.SaveChangesAsync();
 
             return Ok($"Produit '{product.Name}' supprimé avec succès.");
         }
